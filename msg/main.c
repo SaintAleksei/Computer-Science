@@ -83,7 +83,8 @@ int main (int argc, char **argv)
         ret = msgrcv (id, &msg, 1, child_number * 2, 0);
         CHECK_ERROR (ret == -1);
 
-        printf ("NUMBER: %lu\n", child_number);
+        printf ("%lu", child_number);
+        fflush (stdout);
 
         msg.type = child_number * 2 + 1;
 
