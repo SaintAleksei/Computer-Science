@@ -44,7 +44,7 @@ struct buffer
 
 struct sembuf sops[SEM_COUNT] = {};
 
-const struct timespec timeout = {.tv_sec = 3};
+const struct timespec timeout = {.tv_sec = 10};
 
 int semid;
 int shmid;
@@ -66,8 +66,6 @@ int main (int argc, char **argv)
 
     if (argc == 2) /* sender */
     {
-        unsigned short arr[SEM_COUNT] = {};
-
         sops[0].sem_num = SEM_SENDER;
         sops[0].sem_op  = 0;
         sops[0].sem_flg = 0;
@@ -76,27 +74,8 @@ int main (int argc, char **argv)
         sops[1].sem_flg = SEM_UNDO;
         ERR (semop (semid, sops, 2) == -1);
 
-        sops[0].sem_num = SEM_MUTEX;
-        sops[0].sem_op  = 0;
-        sops[0].sem_flg = 0;
-        sops[1].sem_num = SEM_MUTEX;
-        sops[1].sem_op  = 1;
-        sops[1].sem_flg = SEM_UNDO; 
-        ERR (semop (semid, sops, 2) == -1);
-
-        ERR (semctl (semid, SEM_FULL, SETVAL, 0) == -1);
-
-        sops[0].sem_num = SEM_MUTEX;
-        sops[0].sem_op  = -1;
-        sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
-        ERR (semop (semid, sops, 1) == -1);
-    
-        ERR (semctl (semid, 0, GETALL, arr) == -1);
-
         int fd = open (argv[1], O_RDONLY);
         ERR (fd == -1);
-
-        uint8_t stop  = 0;
 
         while (1)
         {
@@ -105,7 +84,7 @@ int main (int argc, char **argv)
             sops[0].sem_flg = 0;
             sops[1].sem_num = SEM_FULL;
             sops[1].sem_op  = 1;
-            sops[1].sem_flg = 0;
+            sops[1].sem_flg = SEM_UNDO;
             sops[2].sem_num = SEM_MUTEX;
             sops[2].sem_op  = 0;
             sops[2].sem_flg = 0;
@@ -131,9 +110,15 @@ int main (int argc, char **argv)
             sops[0].sem_op  = -1;
             sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
             sops[1].sem_num = SEM_EMPTY;
-            sops[1].sem_num = 1;
+            sops[1].sem_op  = 1;
             sops[1].sem_flg = IPC_NOWAIT;
-            ERR (semop (semid, sops, 2) == -1);
+            sops[2].sem_num = SEM_FULL;
+            sops[2].sem_op  = -1;
+            sops[2].sem_flg = SEM_UNDO | IPC_NOWAIT;
+            sops[3].sem_num = SEM_FULL;
+            sops[3].sem_op  = 1;
+            sops[3].sem_op  = IPC_NOWAIT;
+            ERR (semop (semid, sops, 4) == -1);
         }
     }
     else /* receiver */
@@ -146,35 +131,18 @@ int main (int argc, char **argv)
         sops[1].sem_flg = SEM_UNDO;
         ERR (semop (semid, sops, 2) == -1);
 
-        sops[0].sem_num = SEM_MUTEX;
-        sops[0].sem_op  = 0;
-        sops[0].sem_flg = 0;
-        sops[1].sem_num = SEM_MUTEX;
-        sops[1].sem_op  = 1;
-        sops[1].sem_flg = SEM_UNDO; 
-        ERR (semop (semid, sops, 2) == -1);
-
-        ERR (semctl (semid, SEM_EMPTY, SETVAL, 0) == -1);
-
-        sops[0].sem_num = SEM_MUTEX;
-        sops[0].sem_op  = -1;
-        sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
-        ERR (semop (semid, sops, 1) == -1);
-
-        uint8_t stop = 0;
-
         while (1)
         {
             sops[0].sem_num = SEM_EMPTY;
             sops[0].sem_op  = -1;
-            sops[0].sem_flg = 0;
+            sops[0].sem_flg = SEM_UNDO;
             sops[1].sem_num = SEM_MUTEX;
             sops[1].sem_op  = 0;
             sops[1].sem_flg = 0;
             sops[2].sem_num = SEM_MUTEX;
             sops[2].sem_op  = 1;
             sops[2].sem_flg = SEM_UNDO;
-            ERR (semop (semid, sops, 3) == -1);
+            ERR (semtimedop (semid, sops, 3, &timeout) == -1);
 
             buff = shmat (shmid, NULL, 0);
             ERR (buff == (void *) -1);
@@ -187,11 +155,18 @@ int main (int argc, char **argv)
             ERR(shmdt (buff) );
 
             sops[0].sem_num = SEM_MUTEX;
-            sops[0].sem_op  = 1;
+            sops[0].sem_op  = -1;
             sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
             sops[1].sem_num = SEM_FULL;
             sops[1].sem_op  = -1;
             sops[1].sem_flg = IPC_NOWAIT;
+            sops[2].sem_num = SEM_EMPTY;
+            sops[2].sem_op  = 1;
+            sops[2].sem_flg = SEM_UNDO | IPC_NOWAIT;
+            sops[3].sem_num = SEM_EMPTY;
+            sops[3].sem_op  = -1;
+            sops[3].sem_flg = IPC_NOWAIT;
+            ERR (semop (semid, sops, 4) == -1);
         }
     } 
 }
