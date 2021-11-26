@@ -66,6 +66,8 @@ int main (int argc, char **argv)
 
     if (argc == 2) /* sender */
     {
+        unsigned short arr[SEM_COUNT] = {};
+
         sops[0].sem_num = SEM_SENDER;
         sops[0].sem_op  = 0;
         sops[0].sem_flg = 0;
@@ -74,12 +76,29 @@ int main (int argc, char **argv)
         sops[1].sem_flg = SEM_UNDO;
         ERR (semop (semid, sops, 2) == -1);
 
+        sops[0].sem_num = SEM_MUTEX;
+        sops[0].sem_op  = 0;
+        sops[0].sem_flg = 0;
+        sops[1].sem_num = SEM_MUTEX;
+        sops[1].sem_op  = 1;
+        sops[1].sem_flg = SEM_UNDO; 
+        ERR (semop (semid, sops, 2) == -1);
+
+        ERR (semctl (semid, SEM_FULL, SETVAL, 0) == -1);
+
+        sops[0].sem_num = SEM_MUTEX;
+        sops[0].sem_op  = -1;
+        sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
+        ERR (semop (semid, sops, 1) == -1);
+    
+        ERR (semctl (semid, 0, GETALL, arr) == -1);
+
         int fd = open (argv[1], O_RDONLY);
         ERR (fd == -1);
 
-        uint8_t stop = 0;
+        uint8_t stop  = 0;
 
-        while (!stop)
+        while (1)
         {
             sops[0].sem_num = SEM_FULL;
             sops[0].sem_op  = 0;
@@ -100,13 +119,11 @@ int main (int argc, char **argv)
 
             memset (buff->data, 0, BUFSIZ);
 
-
-            exit (0);
             buff->size = read (fd, buff->data, BUFSIZ);
             ERR (buff->size < 0);
 
             if (buff->size == 0)
-                stop = 1;
+                exit (EXIT_SUCCESS);
 
             ERR (shmdt (buff) );
 
@@ -114,17 +131,10 @@ int main (int argc, char **argv)
             sops[0].sem_op  = -1;
             sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
             sops[1].sem_num = SEM_EMPTY;
-            sops[1].sem_op  = 1;
-            sops[1].sem_flg = 0;
+            sops[1].sem_num = 1;
+            sops[1].sem_flg = IPC_NOWAIT;
             ERR (semop (semid, sops, 2) == -1);
         }
-
-        sops[0].sem_num = SEM_SENDER;
-        sops[0].sem_op  = -1;
-        sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
-        ERR (semop (semid, sops, 1) == -1);
-
-        exit (EXIT_SUCCESS);
     }
     else /* receiver */
     {
@@ -136,9 +146,24 @@ int main (int argc, char **argv)
         sops[1].sem_flg = SEM_UNDO;
         ERR (semop (semid, sops, 2) == -1);
 
+        sops[0].sem_num = SEM_MUTEX;
+        sops[0].sem_op  = 0;
+        sops[0].sem_flg = 0;
+        sops[1].sem_num = SEM_MUTEX;
+        sops[1].sem_op  = 1;
+        sops[1].sem_flg = SEM_UNDO; 
+        ERR (semop (semid, sops, 2) == -1);
+
+        ERR (semctl (semid, SEM_EMPTY, SETVAL, 0) == -1);
+
+        sops[0].sem_num = SEM_MUTEX;
+        sops[0].sem_op  = -1;
+        sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
+        ERR (semop (semid, sops, 1) == -1);
+
         uint8_t stop = 0;
 
-        while (!stop)
+        while (1)
         {
             sops[0].sem_num = SEM_EMPTY;
             sops[0].sem_op  = -1;
@@ -149,30 +174,24 @@ int main (int argc, char **argv)
             sops[2].sem_num = SEM_MUTEX;
             sops[2].sem_op  = 1;
             sops[2].sem_flg = SEM_UNDO;
-            ERR (semtimedop (semid, sops, 3, &timeout) == -1);
+            ERR (semop (semid, sops, 3) == -1);
 
             buff = shmat (shmid, NULL, 0);
             ERR (buff == (void *) -1);
 
             if (buff->size <= 0)
-                stop = 1;
+                exit (EXIT_SUCCESS);
             else
                 ERR(write (STDOUT_FILENO, buff->data, buff->size) == -1);
 
             ERR(shmdt (buff) );
 
             sops[0].sem_num = SEM_MUTEX;
-            sops[0].sem_op  = -1;
+            sops[0].sem_op  = 1;
             sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
             sops[1].sem_num = SEM_FULL;
             sops[1].sem_op  = -1;
             sops[1].sem_flg = IPC_NOWAIT;
-            ERR (semop (semid, sops, 2) == -1);
         }
-
-        sops[0].sem_num = SEM_RECEIVER;
-        sops[0].sem_op  = -1;
-        sops[0].sem_flg = SEM_UNDO | IPC_NOWAIT;
-        ERR (semop (semid, sops, 1) == -1);
     } 
 }
