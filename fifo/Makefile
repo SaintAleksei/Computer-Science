@@ -1,18 +1,16 @@
-all: a.out
+flags  :=-g -O0 -Wall -Wextra -Werror
+dirs   := .
+prog   := prog
 
-reciever: test
-	./test 2>>log
+VPATH  := $(dirs)
 
-sender: test
-	./test hamlet 2>>log
+$(prog): $(notdir $(patsubst %.c,%.o,$(wildcard $(addsuffix /*.c,$(dirs) ) ) ) )
+	gcc $^ -o $@
 
-a.out: main.o	
-	gcc main.o
-
-main.o: main.c
-	gcc -c main.c -g -Wall -Wextra
+%.o: %.c
+	gcc -c -MMD $(addprefix -I,$(dirs) ) $(flags) $<
 
 clean:
-	rm -f *.o .file_* log 
-	clear
-	
+	rm -f *.o *.d .*.fifo
+
+include $(wildcard *.d)

@@ -11,11 +11,12 @@
 
 #define BUFSIZE 0x800
 #define NAMESIZE 0x40
+#define TIMEOUT 3
 
 #define CHECK_ERROR(message, condition)\
     if (condition)\
     {\
-        fprintf (stderr, "%s:%u:%s ", __FILE__, __LINE__, __PRETTY_FUNCTION__);\
+        fprintf (stderr, "%s:%u:%s: ", __FILE__, __LINE__, __PRETTY_FUNCTION__);\
         perror (message);\
         exit (EXIT_FAILURE);\
     }
@@ -88,16 +89,17 @@ int find_reciever () /* Sender */
 {
     CHECK_ERROR ("Can't make common fifo file", mkfifo (".file.fifo", S_IWUSR | S_IRUSR) && errno != EEXIST);
 
-    int fd_common_fifo = open (".file.fifo", O_RDONLY | O_NONBLOCK);
+    int fd_common_fifo = open (".file.fifo", O_RDONLY);
     CHECK_ERROR ("Can't open common fifo file", fd_common_fifo == -1);
 
-    CHECK_ERROR ("Can't set flags", fcntl (fd_common_fifo, F_SETFL, O_RDONLY) == -1);
+    ssize_t nbytes = read (fd_common_fifo, fifo_name, NAMESIZE);
+    CHECK_ERROR ("Can't read name from common fifo", nbytes == -1);
 
-    ssize_t bytes_count = 0;
-    while (!bytes_count)
+    if (nbytes == 0) 
     {
-        bytes_count = read (fd_common_fifo, fifo_name, NAMESIZE);
-        CHECK_ERROR ("Can't read data from common fifo file", bytes_count == -1);
+        fprintf (stderr, "No receiver\n");
+
+        exit (EXIT_FAILURE);
     }
 
     int fd_fifo = open (fifo_name, O_WRONLY | O_NONBLOCK);
@@ -132,7 +134,7 @@ int find_sender () /* Reciever */
 
     close (fd_common_fifo);
 
-    sleep (3);
+    sleep (TIMEOUT);
 
     return fd_fifo;
 }
