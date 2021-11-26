@@ -14,9 +14,7 @@
     {\
         if (condition)\
         {\
-            fprintf (stderr, "ERROR: %s:%d in function %s: %s\n",\
-                             __FILE__, __LINE__,\
-                             __PRETTY_FUNCTION__, strerror (errno) );\
+            fprintf (stderr, "ERROR: %s:%d in function %s: %s\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, strerror (errno) );\
             exit (EXIT_FAILURE);\
         }\
     }\
@@ -83,6 +81,7 @@ int main (int argc, char **argv)
     else /* receiver */
     {
         ssize_t nbytes = 0;
+        pid = getppid ();
 
         while (1)
         {
@@ -107,7 +106,7 @@ int main (int argc, char **argv)
 
             if (buff.size == BUFSIZ * 8)
             {
-                nbytes = write (STDOUT_FILENO, buff.data, BUFSIZ * 8);
+                nbytes = write (STDOUT_FILENO, buff.data, BUFSIZ);
                 ERR (nbytes == -1);
 
                 buff.size = 0;
