@@ -15,7 +15,8 @@
         if (condition)\
         {\
             fprintf (stderr, "ERROR: %s:%d in function %s: %s\n",\
-                             __FILE__, __LINE__, __PRETTY_FUNCTION__, strerror (errno) );\
+                             __FILE__, __LINE__,\
+                             __PRETTY_FUNCTION__, strerror (errno) );\
             exit (EXIT_FAILURE);\
         }\
     }\
