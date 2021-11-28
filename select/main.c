@@ -1,12 +1,15 @@
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define ERR(condition)\
     do\
@@ -16,18 +19,19 @@
             fprintf (stderr, "ERROR: %s:%d:%s: %s\n",\
                              __FILE__, __LINE__, __PRETTY_FUNCTION__,\
                              strerror (errno) );\
-            for (size_t __counter = 0; __counter < num; __counter++)\
+            for (size_t __counter = 0; __counter < nproc; __counter++)\
                 wait (NULL);\
             exit (EXIT_FAILURE);\
         }\
     }\
     while (0)
 
-#define MAX(a, b) ( (a) ? (b) ) (a) : (b)
+#define MAX(a, b) ( (a) > (b) ) ? (a) : (b)
 
 #define BUF_MAX  0x10000
 #define BUF_BASE 3
 #define FD_CLOSED -1
+#define TIMEOUT 15
 
 struct connection
 {
@@ -38,9 +42,6 @@ struct connection
     size_t   offset;
     uint8_t *buff;
 };
-
-const struct timeval timeout = {.tv_sec  = 15,
-                                .rv_usec = 0};
 
 size_t get_bufsize (size_t nproc, size_t num);
 
@@ -55,39 +56,39 @@ int main (int argc, char **argv)
 
     if (argc != 3)
     {
-        fprintf (stderr, "Usgae: %s <number_of_child_processes> <name_of_file>\n", argv[0]);
+        fprintf (stderr, "Usgae: %s <number_of_child_processes>"
+                         "<name_of_file>\n", argv[0]);
 
         exit (EXIT_FAILURE);
     }
 
     nproc = strtoul (argv[1], &endptr, 10);
 
-    if ( (num == ULONG_MAX && errno == ERANGE) || *endptr || num == 0)
+    if ( (nproc == ULONG_MAX && errno == ERANGE) || *endptr || nproc == 0)
     {
-        fprintf (stderr, "Bad child processes number", argv[0]);
+        fprintf (stderr, "Bad child processes number");
 
         exit (EXIT_FAILURE);
     }
 
-    /* childs and conetcions creating */
+    /* childs and conections creating */
 
     size_t bufsize = 0;
     int nfds = 0; 
-    fd_set writefds, readfds;
-    struct connection *pr_conn = NULL;
-    struct connection  ch_conn = {};
+    fd_set writefds, 
+           readfds; 
+    struct connection *pr_conn = NULL; /* array with parrent connections */
+    struct connection  ch_conn = {}; /* child connection */
 
-    FD_CLR (&readfds);
-    FD_CLR (&writefds);
-
-    pid = getpid ();
+    FD_ZERO (&readfds);
+    FD_ZERO (&writefds);
 
     pr_conn = calloc (nproc, sizeof (*pr_conn) );
     ERR (pr_conn == NULL);
 
-    for (size_t i = 0, bufsize = ; i < nproc; i++)
+    for (size_t i = 0; i < nproc; i++)
     {
-        bufsize = get_bufsize (num, i);
+        bufsize = get_bufsize (nproc, i);
 
         if (i)
         {
@@ -110,7 +111,7 @@ int main (int argc, char **argv)
 
                 FD_SET (pipefd[0], &readfds);
 
-                nfds = pipefd + 1;
+                nfds = pipefd[0] + 1;
             }
             else
             {
@@ -151,10 +152,10 @@ int main (int argc, char **argv)
                 pr_conn[i].buff     = calloc (1, bufsize);
                 ERR (pr_conn[i].buff == NULL);
 
-                FD_SET (pipefd[0], readfds);
-                FD_SET (pipefd[3], writefds);
+                FD_SET (pipefd[0], &readfds);
+                FD_SET (pipefd[3], &writefds);
 
-                nfds = MAX( MAX(pipefd[0], pipefd[3]), nfds);
+                nfds = MAX( MAX(pipefd[0] + 1, pipefd[3] + 1), nfds);
 
                 ERR (nfds >= FD_SETSIZE);
             }
@@ -165,15 +166,15 @@ int main (int argc, char **argv)
 
                 ch_conn.fdw  = pipefd[3];
                 ch_conn.fdr  = pipefd[1];
-                ch_conn.capacity = buffsize;
-                ch_conn.buff     = calloc (1, buffsize);
+                ch_conn.capacity = bufsize;
+                ch_conn.buff     = calloc (1, bufsize);
                 ERR (ch_conn.buff == NULL);
 
                 for (size_t j = 0; j < i - 1; j++)
                 {
                     close (pr_conn[i].fdr);
                     close (pr_conn[i].fdw);
-                    free  (pr_conn[i].free);
+                    free  (pr_conn[i].buff);
                 }
 
                 close (pr_conn[i-1].fdr);
@@ -193,8 +194,10 @@ int main (int argc, char **argv)
 
         while (done != nproc)
         {
+            struct timeval timeout = {.tv_sec = TIMEOUT};
             fd_set rfds = readfds;
             fd_set wfds = writefds;
+
             int ready = select (nfds, &rfds, &wfds, NULL, &timeout);
             ERR (ready < 0);
 
@@ -245,6 +248,7 @@ int main (int argc, char **argv)
                     if (pr_conn[i].fdr == FD_CLOSED &&
                         pr_conn[i].size == pr_conn[i].offset)
                     {
+                        FD_CLR (pr_conn[i].fdw, &writefds);
                         close (pr_conn[i].fdw);
                         pr_conn[i].fdw = FD_CLOSED;
                         free (pr_conn[i].buff);
@@ -254,16 +258,17 @@ int main (int argc, char **argv)
             }
         }          
 
+        free (pr_conn);
         exit (EXIT_SUCCESS);
     }
     else /* childs */
     {
-        while ()
+        while (1)
         {
             ch_conn.size = (size_t) read (ch_conn.fdr, 
                                           ch_conn.buff, 
                                           ch_conn.capacity);
-            ERR (ch_conn.size == (size_t) -1)
+            ERR (ch_conn.size == (size_t) -1);
 
             if (!ch_conn.size)
                 exit (EXIT_SUCCESS);
@@ -275,12 +280,12 @@ int main (int argc, char **argv)
     }
 }
 
-size_t get_bufsize (size_t nproc, size_t num);
+size_t get_bufsize (size_t nproc, size_t num)
 {
     size_t result = 1;
-    for (size_t i = 0; < nproc - num + 4; i++)
+    for (size_t i = 0; i < nproc - num + 4; i++)
     {
-        result *= BUF_BASE
+        result *= BUF_BASE;
         if (result >= BUF_MAX)
             return BUF_MAX;
     }
