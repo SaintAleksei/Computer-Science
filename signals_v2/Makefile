@@ -1,6 +1,6 @@
 flags  :=-g -O0 -Wall -Wextra
 dirs   := .
-prog   := sig
+prog   := a.out
 
 VPATH  := $(dirs)
 
@@ -11,6 +11,6 @@ $(prog): $(notdir $(patsubst %.c,%.o,$(wildcard $(addsuffix /*.c,$(dirs) ) ) ) )
 	gcc -c -MMD $(addprefix -I,$(dirs) ) $(flags) $<
 
 clean:
-	rm *.o *.d
+	rm -f *.o *.d $(prog)
 
 include $(wildcard *.d)
