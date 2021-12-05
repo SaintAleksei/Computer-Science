@@ -26,7 +26,7 @@
 
 #define MAX(a, b) ( (a) > (b) ) ? (a) : (b)
 
-#define BUF_MAX  0x10000
+#define BUF_MAX  0x20000
 #define BUF_BASE 3
 #define FD_CLOSED -1
 #define TIMEOUT 15
@@ -36,7 +36,8 @@ struct connection
     int      fdr; /* descriptor for reading */
     int      fdw; /* descriptor for writing */
     size_t   capacity; /* Capacity of buffer */
-    size_t   size; /* Count of bytes read */
+    size_t   size; /* Count of bytes to write */
+    size_t   offset; /* Current position in buff */
     uint8_t *buff; 
 };
 
@@ -70,7 +71,6 @@ int main (int argc, char **argv)
 
     /* Creating childs and connections */
 
-    size_t bufsize = 0;
     int nfds = 0; 
     fd_set writefds,
            readfds; 
@@ -82,16 +82,15 @@ int main (int argc, char **argv)
 
     pr_conn = calloc (nproc, sizeof (*pr_conn) );
     ERR (pr_conn == NULL);
-
+    
     for (size_t i = 0; i < nproc; i++)
     {
-        bufsize = get_bufsize (nproc, i);
+        size_t bufsize = get_bufsize (nproc, i);
+        int pipefd[4] = {};
+        pid_t pid = 0;
 
         if (!i)
         {
-            pid_t pid = 0;  
-            int pipefd[2] = {};
-
             ERR (pipe (pipefd) == -1);
 
             pid = fork (); 
@@ -122,14 +121,13 @@ int main (int argc, char **argv)
                 ch_conn.buff     = calloc (1, bufsize);
                 ERR (ch_conn.buff == NULL); 
 
+                free (pr_conn);
+
                 break;
             }
         }
         else
         {
-            pid_t pid = 0;
-            int pipefd[4] = {};
-
             ERR (pipe (pipefd) == -1);
             ERR (pipe (pipefd + 2) == -1);
     
@@ -143,11 +141,6 @@ int main (int argc, char **argv)
 
                 pr_conn[i-1].fdw = pipefd[3];
                 pr_conn[i].fdr   = pipefd[0];
-                if (i == nproc-1)
-                {
-                    pr_conn[i].fdw  = STDOUT_FILENO;
-                    FD_SET (STDOUT_FILENO, &writefds);
-                }
                 pr_conn[i].capacity = bufsize;
                 pr_conn[i].buff     = calloc (1, bufsize);
                 ERR (pr_conn[i].buff == NULL);
@@ -177,11 +170,24 @@ int main (int argc, char **argv)
                     free  (pr_conn[j].buff);
                 }
 
+                FD_ZERO (&readfds);
+                FD_ZERO (&writefds);
+
                 free  (pr_conn);
+
+                pr_conn = NULL;
 
                 break;
             }
         }
+    }
+
+    if (pr_conn)
+    {
+        pr_conn[nproc-1].fdw = STDOUT_FILENO;
+        FD_SET (STDOUT_FILENO, &writefds);
+
+        nfds = MAX (STDOUT_FILENO + 1, nfds); 
     }
 
     /* file sending */
@@ -189,6 +195,12 @@ int main (int argc, char **argv)
     if (getpid () == mainpid) /* parent */
     {
         size_t done = 0;
+
+        for (size_t i = 0; i < nproc; i++)
+        {
+            ERR (fcntl (pr_conn[i].fdr, F_SETFL, O_RDONLY | O_NONBLOCK) == -1);
+            ERR (fcntl (pr_conn[i].fdw, F_SETFL, O_WRONLY | O_NONBLOCK) == -1);
+        }
 
         while (done != nproc)
         {
@@ -210,13 +222,15 @@ int main (int argc, char **argv)
                     pr_conn[i].fdr != FD_CLOSED &&      
                     /* True if reading isn't blocked */
                     FD_ISSET (pr_conn[i].fdr, &rfds) && 
-                    /* True if buffer empty (previous data was wrote) */
+                    /* True if buffer is empty (previous data was wrote) */
                     !pr_conn[i].size)                   
                 {
                     pr_conn[i].size = (size_t) read (pr_conn[i].fdr, 
                                                      pr_conn[i].buff, 
                                                      pr_conn[i].capacity);
                     ERR (pr_conn[i].size == (size_t) -1);
+
+                    pr_conn[i].offset = 0;
 
                     if (!pr_conn[i].size)
                     {
@@ -232,21 +246,22 @@ int main (int argc, char **argv)
                         /* Increasing closed connections count */ 
                         done++;
                     }
-
                 }
 
                 if (/* True if connections isn't closed */
                     pr_conn[i].fdw != FD_CLOSED &&
                     /* True if writing isn't blocked */
                     FD_ISSET (pr_conn[i].fdw, &wfds) &&
-                    /* True if buffer isn't full */
+                    /* True if buffer isn't empty*/
                     pr_conn[i].size)
                 {
-                    ERR (write (pr_conn[i].fdw, 
-                                pr_conn[i].buff,
-                                pr_conn[i].size) == -1);
-
-                    pr_conn[i].size = 0;
+                    ssize_t nbytes = write (pr_conn[i].fdw, 
+                                            pr_conn[i].buff + pr_conn[i].offset,
+                                            pr_conn[i].size);
+                    ERR (nbytes < 0);
+    
+                    pr_conn[i].offset += nbytes;
+                    pr_conn[i].size   -= nbytes;
                 }
             }
         }          
@@ -273,7 +288,6 @@ int main (int argc, char **argv)
     }
 }
 
-/* MAX( BUF_BASE ^ (nproc - num + 4), BUF_MAX) */
 size_t get_bufsize (size_t nproc, size_t num)
 {
     size_t result = 1;
