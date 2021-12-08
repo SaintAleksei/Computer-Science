@@ -171,6 +171,5 @@ void chld_handler (int signum)
 
 void alrm_handler (int signum)
 {
-    if (getppid () == 1)
-        end = 1;
+    end = 1;
 }
