@@ -28,18 +28,19 @@
 
 #define BUF_MAX  0x20000
 #define BUF_BASE 3
-#define FD_CLOSED -1
 #define TIMEOUT 15
 
 struct connection
 {
-    int      fdr; /* descriptor for reading */
-    int      fdw; /* descriptor for writing */
+    int      fdr;      /* Descriptor for reading */
+    int      fdw;      /* Descriptor for writing */
     size_t   capacity; /* Capacity of buffer */
-    size_t   size; /* Count of bytes to write */
-    size_t   offset; /* Current position in buff */
+    size_t   size;     /* Count of bytes to write */
+    size_t   offset;   /* Current position in buff */
     uint8_t *buff; 
 };
+
+struct timeval timeout = {.tv_sec = TIMEOUT};
 
 size_t get_bufsize (size_t nproc, size_t num);
 
@@ -60,11 +61,12 @@ int main (int argc, char **argv)
         exit (EXIT_FAILURE);
     }
 
+    errno = 0;
     nproc = strtoul (argv[1], &endptr, 10);
 
-    if ( (nproc == ULONG_MAX && errno == ERANGE) || *endptr || nproc == 0)
+    if (argv[1][0] == '-' || errno || *endptr || nproc == 0)
     {
-        fprintf (stderr, "Bad child processes number");
+        fprintf (stderr, "Bad child processes number\n");
 
         exit (EXIT_FAILURE);
     }
@@ -146,7 +148,6 @@ int main (int argc, char **argv)
                 ERR (pr_conn[i].buff == NULL);
 
                 FD_SET (pipefd[0], &readfds);
-                FD_SET (pipefd[3], &writefds);
 
                 nfds = MAX( MAX(pipefd[0] + 1, pipefd[3] + 1), nfds);
 
@@ -204,7 +205,6 @@ int main (int argc, char **argv)
 
         while (done != nproc)
         {
-            struct timeval timeout = {.tv_sec = TIMEOUT};
             fd_set rfds = readfds;
             fd_set wfds = writefds;
 
@@ -218,42 +218,31 @@ int main (int argc, char **argv)
 
             for (size_t i = 0; i < nproc; i++)
             {
-                if (/* True if connection wasn't closed */
-                    pr_conn[i].fdr != FD_CLOSED &&      
-                    /* True if reading isn't blocked */
-                    FD_ISSET (pr_conn[i].fdr, &rfds) && 
-                    /* True if buffer is empty (previous data was wrote) */
-                    !pr_conn[i].size)                   
+                if (FD_ISSET (pr_conn[i].fdr, &rfds) )
                 {
+                    errno = 0;
                     pr_conn[i].size = (size_t) read (pr_conn[i].fdr, 
                                                      pr_conn[i].buff, 
                                                      pr_conn[i].capacity);
                     ERR (pr_conn[i].size == (size_t) -1);
 
-                    pr_conn[i].offset = 0;
-
                     if (!pr_conn[i].size)
                     {
-                        /* Closing connection */
                         FD_CLR (pr_conn[i].fdr, &readfds);
-                        FD_CLR (pr_conn[i].fdw, &writefds);
                         close (pr_conn[i].fdr);
                         close (pr_conn[i].fdw);
-                        pr_conn[i].fdr = FD_CLOSED;
-                        pr_conn[i].fdw = FD_CLOSED;
                         free (pr_conn[i].buff);
 
-                        /* Increasing closed connections count */ 
                         done++;
+                    }
+                    else
+                    {
+                        FD_CLR (pr_conn[i].fdr, &readfds);
+                        FD_SET (pr_conn[i].fdw, &writefds);
                     }
                 }
 
-                if (/* True if connections isn't closed */
-                    pr_conn[i].fdw != FD_CLOSED &&
-                    /* True if writing isn't blocked */
-                    FD_ISSET (pr_conn[i].fdw, &wfds) &&
-                    /* True if buffer isn't empty*/
-                    pr_conn[i].size)
+                if (FD_ISSET (pr_conn[i].fdw, &wfds) )
                 {
                     ssize_t nbytes = write (pr_conn[i].fdw, 
                                             pr_conn[i].buff + pr_conn[i].offset,
@@ -262,6 +251,13 @@ int main (int argc, char **argv)
     
                     pr_conn[i].offset += nbytes;
                     pr_conn[i].size   -= nbytes;
+
+                    if (!pr_conn[i].size)
+                    {
+                        FD_CLR (pr_conn[i].fdw, &writefds);
+                        FD_SET (pr_conn[i].fdr, &readfds);
+                        pr_conn[i].offset = 0;
+                    }
                 }
             }
         }          
