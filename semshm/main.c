@@ -81,7 +81,7 @@ int main (int argc, char **argv)
 
         /* 
            critical section #1 start:
-           processes - senders
+           processes - senders vs receivers
            resources - shared memory && semaphores
         */
 
@@ -120,11 +120,6 @@ int main (int argc, char **argv)
                resource - shared memory
             */
 
-            semops_add (SEM_CONNECTION, -1, 0);
-            semops_add (SEM_CONNECTION,  1, 0);
-            semops_add (SEM_CONNECTION,  1, SEM_UNDO);
-            ERR (semops_do (semid) == -1);
-
             buff = shmat (shmid, NULL, 0);
             ERR (buff == (void *) -1);
 
@@ -141,7 +136,7 @@ int main (int argc, char **argv)
             semops_add (SEM_MUTEX, -1, SEM_UNDO | IPC_NOWAIT);
             semops_add (SEM_EMPTY, 1, 0);
             semops_add (SEM_FULL, -1, SEM_UNDO | IPC_NOWAIT);
-            semops_add (SEM_FULL,  1, IPC_NOWAIT);
+            semops_add (SEM_FULL,  1, 0);
             ERR (semops_do (semid) == -1); 
 
             /* SEM_EMPTY == 1 && SEM_FULL == 1 */
