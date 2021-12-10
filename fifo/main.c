@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -9,14 +10,14 @@
 #include <assert.h>
 #include <string.h>
 
-#define BUFSIZE 0x800
+#define BUFSIZE PIPE_BUF
 #define NAMESIZE 0x40
 #define TIMEOUT 3
 
 #define ERR(condition)\
     if (condition)\
     {\
-        fprintf (stderr, "%s:%u:%s: %s\n", __FILE__, __LINE__,\
+        fprintf (stderr, "ERROR: %s:%u:%s: %s\n", __FILE__, __LINE__,\
                  __PRETTY_FUNCTION__, strerror (errno) );\
         exit (EXIT_FAILURE);\
     }
@@ -89,17 +90,17 @@ int find_reciever () /* Sender */
 {
     ERR (mkfifo (".file.fifo", S_IWUSR | S_IRUSR) && errno != EEXIST);
 
-    int fd_common_fifo = open (".file.fifo", O_RDONLY);
-    ERR (fd_common_fifo == -1);
+    ssize_t nbytes = 0;
 
-    ssize_t nbytes = read (fd_common_fifo, fifo_name, NAMESIZE);
-    ERR (nbytes == -1);
-
-    if (nbytes == 0) 
+    while (nbytes == 0) 
     {
-        fprintf (stderr, "No receiver\n");
+        int fd_common_fifo = open (".file.fifo", O_RDONLY);
+        ERR (fd_common_fifo == -1);
 
-        exit (EXIT_FAILURE);
+        nbytes = read (fd_common_fifo, fifo_name, NAMESIZE);
+        ERR (nbytes == -1);
+
+        close (fd_common_fifo);
     }
 
     int fd_fifo = open (fifo_name, O_WRONLY | O_NONBLOCK);
@@ -107,17 +108,12 @@ int find_reciever () /* Sender */
 
     ERR (fcntl (fd_fifo, F_SETFL, O_WRONLY) == -1);
 
-    close (fd_common_fifo);
-
     return fd_fifo;
 }
 
 int find_sender () /* Reciever */
-
+{
     ERR (mkfifo (".file.fifo", S_IWUSR | S_IRUSR) && errno != EEXIST);
-
-    int fd_common_fifo = open (".file.fifo", O_WRONLY);
-    ERR (fd_common_fifo == -1);
 
     pid_t fifo_pid = getpid ();
     snprintf (fifo_name, NAMESIZE, ".%u.fifo", fifo_pid);
@@ -128,6 +124,9 @@ int find_sender () /* Reciever */
     ERR (fd_fifo == -1);
 
     ERR (fcntl (fd_fifo, F_SETFL, O_RDONLY) == -1);
+
+    int fd_common_fifo = open (".file.fifo", O_WRONLY);
+    ERR (fd_common_fifo == -1);
 
     ssize_t bytes_count = write (fd_common_fifo, fifo_name, NAMESIZE);
     ERR (bytes_count == -1);
