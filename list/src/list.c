@@ -1,3 +1,14 @@
+/*
+ * TODO:
+ * Implementation of:
+ * - list_find_node
+ * - list_find_index
+ * - list_delete
+ * - list_delete_head
+ * - list_delete_tail
+ */
+
+
 #include "list.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -205,7 +216,7 @@ size_t list_size(const struct list *list)
     return list->size;
 }
 
-const void *node_data(const struct node *node)
+const void *list_node_data(const struct node *node)
 {
     if (!node)
     {

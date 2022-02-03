@@ -1,3 +1,11 @@
+/*
+ * TODO:
+ * - Some implementations in list.c
+ * - Tests
+ * - Makefile for compiling a library 
+ * - Description of the interface 
+ */
+
 #ifndef SRC_LIST_H
 #define SRC_LIST_H
 
@@ -31,6 +39,12 @@ struct list *list_slice(const struct list *list,
 
 struct list *list_copy(const struct list *list);
 
+struct node *list_find_node(const struct list *list,
+                            size_t index);
+
+size_t list_find_index(const struct list *list,
+                       const struct node *node);
+
 struct node *list_insert(struct list *list,
                          struct node *node,
                          const void *data);
@@ -41,6 +55,12 @@ struct node *list_insert_head(struct list *list,
 struct node *list_insert_tail(struct list *list,
                               const void *data);
 
+int list_delete(struct list *list);
+
+int list_delete_head(struct list *list);
+
+int list_delete_tail(struct list *list);
+
 size_t list_size(const struct list *list);
 
 struct node *list_head(const struct list *list);
@@ -49,7 +69,7 @@ struct node *list_tail(const struct list *list);
 
 const char *list_strerror(int errcode);
 
-const void *node_data(const struct node *node);
+const void *list_node_data(const struct node *node);
 
 typedef struct list * list_t;
 typedef struct node * node_t;
