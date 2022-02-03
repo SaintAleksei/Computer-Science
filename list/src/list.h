@@ -11,7 +11,7 @@
 
 extern int list_errno;
 
-struct list *list_create(size_t size);
+struct list *list_create();
 
 void list_destroy(struct list *list);
 
@@ -27,7 +27,7 @@ struct list *list_merge(struct list *left,
 struct list *list_slice(const struct list *list,
                         size_t begin,
                         size_t size,
-                        size_t step);
+                        int step);
 
 struct list *list_copy(const struct list *list);
 

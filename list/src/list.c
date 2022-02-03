@@ -17,8 +17,7 @@ struct list
 
 int list_errno;
 
-struct list* 
-list_create()
+struct list *list_create()
 {
     struct list *list = calloc(1, sizeof(*list));
     list->ghost = calloc(1, sizeof(*list->ghost));
@@ -34,8 +33,7 @@ list_create()
     return list;
 }
 
-void 
-list_destroy(struct list *list)
+void list_destroy(struct list *list)
 {
     if (!list)
         return;
@@ -50,10 +48,9 @@ list_destroy(struct list *list)
     free(list);
 }
 
-struct node*
-list_insert(struct list *list,
-            struct node *node,
-            const void *data)
+struct node *list_insert(struct list *list,
+                         struct node *node,
+                         const void *data)
 {
     if (!list || !list->ghost || !node)
     {
@@ -61,7 +58,7 @@ list_insert(struct list *list,
         return NULL;
     }
 
-    sruct node *new = calloc(1, sizeof(*new));
+    struct node *new = calloc(1, sizeof(*new));
 
     if (!new)
     {
@@ -74,17 +71,16 @@ list_insert(struct list *list,
     node->next = new;
 
     if (node == list->tail)
-        tail = new;
+        list->tail = new;
     
     list->size++;
 
     return new;
 }
 
-int 
-list_foreach(struct list *list,
-             int (*callback)(void *data, void *context),
-             void *context)
+int list_foreach(struct list *list,
+                 int (*callback)(void *data, void *context),
+                 void *context)
 {
     if (!list || !list->ghost || !callback || !context)
     {
@@ -107,9 +103,8 @@ list_foreach(struct list *list,
     return EXIT_SUCCESS;
 }
 
-struct list*
-list_merge(struct list *left, 
-           struct list *right)
+struct list *list_merge(struct list *left, 
+                        struct list *right)
 {
     if (!left || !left->ghost || !right || !right->ghost)
     {
@@ -125,13 +120,12 @@ list_merge(struct list *left,
     return left;
 }
 
-struct list*
-list_slice(const struct list *list,
-           size_t begin,
-           size_t size,
-           int step);
+struct list *list_slice(const struct list *list,
+                        size_t begin,
+                        size_t size,
+                        int step)
 {
-    if (!list || begin > end)
+    if (!list)
     {
         list_errno = LIST_ERRARGS;
         return NULL;
@@ -148,18 +142,13 @@ list_slice(const struct list *list,
     {
         if (i == j)
         {
-            new->tail->next = calloc(1, sizeof(*new->tail->next));
-
-            if (!new->tail->next)
+            if (!list_insert_tail(new, node->data))
             {
                 list_destroy(new);
                 list_errno = LIST_ERRMEM;
                 return NULL;
             }
 
-            new->tail->next->data = node->data;
-            new->size++;
-        
             j += step;
         }
 
@@ -177,14 +166,14 @@ struct list *list_copy(const struct list *list)
     return list_slice(list, 0, list->size, 1);
 }
 
-struct list *list_insert_head(struct list *list,
-                              void *data)
+struct node *list_insert_head(struct list *list,
+                              const void *data)
 {
     return list_insert(list, list->ghost, data);
 }
 
-struct list *list_insert_tail(struct list *list,
-                              void *data)
+struct node *list_insert_tail(struct list *list,
+                              const void *data)
 {
     return list_insert(list, list->tail, data);
 }
