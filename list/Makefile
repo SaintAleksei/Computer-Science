@@ -1,16 +1,28 @@
-flags  :=-g -O0 -Wall -Wextra
-dirs   := .
-prog   := prog
+INCDIRS=inc
+SRCDIRS=lib test
 
-VPATH  := $(dirs)
+SRC=$(wildcard $(addsuffix /*.c,$(SRCDIRS)))
+OBJ=$(notdir $(patsubst %.c,%.o,$(SRC)))
 
-$(prog): $(notdir $(patsubst %.c,%.o,$(wildcard $(addsuffix /*.c,$(dirs) ) ) ) )
-	gcc $^ -o $@
+CFLAGS=--coverage -Wall -Wextra -MMD $(addprefix -I,$(INCDIRS))
 
-%.o: %.c
-	gcc -c -MMD $(addprefix -I,$(dirs) ) $(flags) $<
+VPATH=$(SRCDIRS)
+
+.PHONY: clean test valgrind coverage
+
+test: test-bin
+	./test-bin
+
+valgrind: test-bin
+	valgrind ./test-bin
+
+test-bin: $(OBJ)
+	gcc -o test-bin --coverage $^
+
+coverage: test
+	gcov $(notdir $(patsubst %.gcda,%.c,$(SRC)))
 
 clean:
-	rm -f *.o *.d $(prog)
-
+	rm -f *.o *.d *.gcno *.gcda *.gcov test-bin
+	
 include $(wildcard *.d)
