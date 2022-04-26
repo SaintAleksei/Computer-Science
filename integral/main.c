@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <sys/sysinfo.h>
+#include <fcntl.h>
 #include <error.h>
 #include <unistd.h>
 #include <sched.h>
@@ -48,7 +49,21 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    int fd = open("/sys/devices/system/cpu/smt/active", O_RDONLY);
+    if (fd == -1)
+        error(EXIT_FAILURE, errno, "open");
+
+    uint8_t hyper_threading = 0;
+    if (read(fd, &hyper_threading, 1) != 1)
+        error(EXIT_FAILURE, errno, "write");
+
+    if (hyper_threading != '1')
+        hyper_threading = 0;
+
     unsigned long nprocs = get_nprocs();
+
+    if (hyper_threading)
+        nprocs /= 2;
 
     if (nthreads > nprocs)
     {
@@ -75,7 +90,10 @@ int main(int argc, char **argv)
         cpu_set_t set;
 
         CPU_ZERO(&set); 
-        CPU_SET(i, &set);
+        if (hyper_threading)
+            CPU_SET(i * 2, &set);
+        else
+            CPU_SET(i, &set);
 
         retval = pthread_attr_setaffinity_np(&attr, sizeof(set), &set);
         if (retval != 0)
@@ -111,7 +129,7 @@ int main(int argc, char **argv)
 
 double func(double x)
 {
-    return cos(x);
+    return x * cos(x);
 }
 
 void *thread_cb(void *data)
