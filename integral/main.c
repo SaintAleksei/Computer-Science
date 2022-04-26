@@ -39,9 +39,10 @@ int main(int argc, char **argv)
     }
 
     char *endptr = NULL;
+    errno = 0;
     unsigned long nthreads = strtoul(argv[1], &endptr, 10);
 
-    if (argv[1][0] == '-' || (nthreads == ULONG_MAX && errno == ERANGE) || *endptr != '\0')
+    if (argv[1][0] == '-' || errno == ERANGE || *endptr != '\0')
     {
         fprintf(stderr, "Bad number of threads\n"); 
         exit(EXIT_FAILURE);
