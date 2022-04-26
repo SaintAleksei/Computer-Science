@@ -1,7 +1,7 @@
 DIRS := .
 PROG := integral
 
-CFLAGS := -MMD $(addprefix -I,$(DIRS)) -g -O0 -Wall -Wextra -Werror -D DEBUG
+CFLAGS := -MMD $(addprefix -I,$(DIRS)) -g -O0 -Wall -Wextra -Werror
 VPATH  := $(DIRS)
 
 $(PROG): $(notdir $(patsubst %.c,%.o,$(wildcard $(addsuffix /*.c,$(DIRS) ) ) ) )

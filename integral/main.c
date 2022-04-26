@@ -58,12 +58,14 @@ int main(int argc, char **argv)
     pthread_attr_t attr;
 
     retval = pthread_attr_init(&attr);
-    assert(retval == 0);
+    if (retval != 0)
+        error(EXIT_FAILURE, errno, "pthread_attr_init");
 
     size_t alignment = sysconf(_SC_PAGESIZE);
     uint8_t *buf = NULL;
     retval = posix_memalign((void **) &buf, alignment, alignment * nprocs);
-    assert(retval == 0);
+    if (retval != 0)
+        error(EXIT_FAILURE, errno, "posix_memalign");
 
     double step = (INTEGRAL_END - INTEGRAL_START) / (double) nthreads;
     double start = 0.0;
@@ -75,18 +77,21 @@ int main(int argc, char **argv)
         CPU_SET(i, &set);
 
         retval = pthread_attr_setaffinity_np(&attr, sizeof(set), &set);
-        assert(retval == 0);
+        if (retval != 0)
+            error(EXIT_FAILURE, errno, "pthread_attr_setaffinity_np");
 
         struct thread_info *tinfo = (struct thread_info *)(buf + i * alignment);
         tinfo->start = start;
         tinfo->end = start + step;
 
         retval = pthread_create(thread + i, &attr, thread_cb, tinfo);
-        assert(retval == 0);
+        if (retval != 0)
+            error(EXIT_FAILURE, errno, "pthread_create");
     }
 
     retval = pthread_attr_destroy(&attr);
-    assert(retval == 0);
+    if (retval != 0)
+        error(EXIT_FAILURE, errno, "pthread_attr_destroy");
 
     for (unsigned long i = 0; i < nprocs; i++)
     {
