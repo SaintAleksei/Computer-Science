@@ -53,13 +53,6 @@ int main(int argc, char **argv)
     if (fd == -1)
         error(EXIT_FAILURE, errno, "open");
 
-    uint8_t hyper_threading = 0;
-    if (read(fd, &hyper_threading, 1) != 1)
-        error(EXIT_FAILURE, errno, "write");
-
-    if (hyper_threading != '1')
-        hyper_threading = 0;
-
     unsigned long nprocs = get_nprocs();
 
     if (nthreads > nprocs)
@@ -87,9 +80,7 @@ int main(int argc, char **argv)
         cpu_set_t set;
 
         CPU_ZERO(&set); 
-        if (!hyper_threading)
-            CPU_SET(i, &set);
-        else if (i * 2 < nprocs)
+        if (i * 2 < nprocs)
             CPU_SET(i * 2, &set);
         else
             CPU_SET(((i * 2) + 1) % nprocs, &set);
