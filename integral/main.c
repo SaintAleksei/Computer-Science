@@ -18,6 +18,8 @@
 #define INTEGRAL_END 500.0
 #define INTEGRAL_DX 1e-6
 
+#define MAX(A, B) (( (A) > (B) ) ? (A) : (B))
+
 struct thread_info
 {
     double start;
@@ -29,7 +31,6 @@ void *thread_cb(void *data);
 
 int main(int argc, char **argv)
 {
-    pthread_t thread[INTEGRAL_MAXTHREADS];
     double result = 0.0;
     int retval = 0;
 
@@ -51,11 +52,9 @@ int main(int argc, char **argv)
 
     unsigned long nprocs = get_nprocs();
 
-    if (nthreads > nprocs)
-    {
-        fprintf(stderr, "Too much threads\n");
-        exit(EXIT_FAILURE);
-    }
+    pthread_t *thread = calloc(MAX(nprocs, nthreads), sizeof(*thread));
+    if (!thread)
+        error(EXIT_FAILURE, errno, "calloc");
 
     pthread_attr_t attr;
 
@@ -65,21 +64,21 @@ int main(int argc, char **argv)
 
     size_t alignment = sysconf(_SC_PAGESIZE);
     uint8_t *buf = NULL;
-    retval = posix_memalign((void **) &buf, alignment, alignment * nprocs);
+    retval = posix_memalign((void **) &buf, alignment, alignment * MAX(nprocs, nthreads));
     if (retval != 0)
         error(EXIT_FAILURE, errno, "posix_memalign");
 
     double step = (INTEGRAL_END - INTEGRAL_START) / (double) nthreads;
     double start = 0.0;
-    for (unsigned long i = 0; i < nprocs; i++, start += step)
+    for (unsigned long i = 0; i < MAX(nthreads, nprocs); i++, start += step)
     {
         cpu_set_t set;
 
         CPU_ZERO(&set); 
-        if (i * 2 < nprocs)
-            CPU_SET(i * 2, &set);
-        else
+        if ((i / nprocs) % 2)
             CPU_SET(((i * 2) + 1) % nprocs, &set);
+        else
+            CPU_SET((i * 2) % nprocs, &set);
 
         retval = pthread_attr_setaffinity_np(&attr, sizeof(set), &set);
         if (retval != 0)
@@ -98,7 +97,7 @@ int main(int argc, char **argv)
     if (retval != 0)
         error(EXIT_FAILURE, errno, "pthread_attr_destroy");
 
-    for (unsigned long i = 0; i < nprocs; i++)
+    for (unsigned long i = 0; i < MAX(nthreads, nprocs); i++)
     {
         int retval = pthread_join(thread[i], NULL);
         if (retval != 0)
@@ -111,6 +110,7 @@ int main(int argc, char **argv)
     printf("Result: %lg\n", result);
 
     free(buf);
+    free(thread);
 }
 
 double func(double x)
