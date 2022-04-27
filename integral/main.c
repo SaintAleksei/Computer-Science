@@ -62,9 +62,6 @@ int main(int argc, char **argv)
 
     unsigned long nprocs = get_nprocs();
 
-    if (hyper_threading)
-        nprocs /= 2;
-
     if (nthreads > nprocs)
     {
         fprintf(stderr, "Too much threads\n");
@@ -90,10 +87,12 @@ int main(int argc, char **argv)
         cpu_set_t set;
 
         CPU_ZERO(&set); 
-        if (hyper_threading)
+        if (!hyper_threading)
+            CPU_SET(i, &set);
+        else if (i * 2 < nprocs)
             CPU_SET(i * 2, &set);
         else
-            CPU_SET(i, &set);
+            CPU_SET(((i * 2) + 1) % nprocs, &set);
 
         retval = pthread_attr_setaffinity_np(&attr, sizeof(set), &set);
         if (retval != 0)
@@ -122,7 +121,7 @@ int main(int argc, char **argv)
             result += ((struct thread_info *) (buf + i * alignment))->result;
     }
 
-    printf("Result is %lg\n", result);
+    printf("Result: %lg\n", result);
 
     free(buf);
 }
