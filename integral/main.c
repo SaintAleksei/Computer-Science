@@ -49,10 +49,6 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    int fd = open("/sys/devices/system/cpu/smt/active", O_RDONLY);
-    if (fd == -1)
-        error(EXIT_FAILURE, errno, "open");
-
     unsigned long nprocs = get_nprocs();
 
     if (nthreads > nprocs)
