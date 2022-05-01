@@ -5,6 +5,9 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
+#include <net/if.h>
+#include <ifaddrs.h>
+#include <unistd.h>
 #include <errno.h>
 #include <error.h>
 #include <assert.h>
@@ -14,13 +17,10 @@
 
 int server_sendBroadcast(struct sockaddr_in **result, size_t *count)
 {
-    assert(result); 
-    assert(count);
-
-    static struct sockaddr_in addr_arr[INTEGRAL_MAX_CLIENTS_COUNT];
+    static struct sockaddr_in addrArr[INTEGRAL_MAX_CLIENTS_COUNT];
     int retval = 0;
 
-    int broadcastSock = socket(AF_INET, SOCK_DGRAM, 0); 
+    int broadcastSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); 
     if (broadcastSock == -1)
         error(EXIT_FAILURE, errno, "socket");
 
@@ -30,25 +30,52 @@ int server_sendBroadcast(struct sockaddr_in **result, size_t *count)
     if (retval == -1)
         error(EXIT_FAILURE, errno, "setsockopt");
 
-    struct sockaddr_in broadcastAddr =
+    int answerSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (answerSock == -1)
+        error (EXIT_FAILURE, errno, "socket");
+
+    struct sockaddr_in answerAddr = 
     {
         .sin_family = AF_INET,
         .sin_port = htons(INTEGRAL_BROADCAST_PORT),
-        .sin_addr.s_addr = INADDR_ANY, 
+        .sin_addr.s_addr = INADDR_ANY,
     };
 
-    retval = bind(broadcastSock, (struct sockaddr *) &broadcastAddr, 
-                  sizeof(broadcastAddr));
+    retval = bind(answerSock, (struct sockaddr *) &answerAddr,
+                  sizeof(answerAddr));
     if (retval == -1)
-        error(EXIT_FAILURE, errno, "bind");
+        error(EXIT_FAILURE, errno, "bind"); 
+
+    struct ifaddrs *ifaddrs = NULL;
+    if (getifaddrs(&ifaddrs) == -1)
+        error(EXIT_FAILURE, errno, "getifaddrs");
 
     uint64_t broadcastMsg = INTEGRAL_BROADCAST_MSG;
-    retval = sendto(broadcastSock, &broadcastMsg, sizeof(broadcastMsg),
-                    0, (struct sockaddr *) &broadcastAddr, sizeof(broadcastAddr));
-    if (retval == -1)
-        error(EXIT_FAILURE, errno, "sendto");
+    for (struct ifaddrs *iterator = ifaddrs; iterator; 
+         iterator = iterator->ifa_next)
+    {
+        if (!iterator->ifa_broadaddr)
+            continue;
 
-    *count = 0;
+        if (iterator->ifa_flags & IFF_BROADCAST && 
+            iterator->ifa_broadaddr->sa_family == AF_INET)
+        {
+            struct sockaddr_in 
+            *broadcastAddr = (struct sockaddr_in *) iterator->ifa_broadaddr;
+            broadcastAddr->sin_port = htons(INTEGRAL_BROADCAST_PORT);
+            retval = sendto(broadcastSock, &broadcastMsg, sizeof(broadcastMsg),
+                            0, (struct sockaddr *) broadcastAddr, 
+                            sizeof(*broadcastAddr));
+
+            if (retval == -1)
+                error(EXIT_FAILURE, errno, "sendto");
+        }
+    }
+
+    freeifaddrs(ifaddrs); 
+    close(broadcastSock);
+
+    size_t nanswers = 0;
     do
     {
         if (*count >= INTEGRAL_MAX_CLIENTS_COUNT)
@@ -58,32 +85,36 @@ int server_sendBroadcast(struct sockaddr_in **result, size_t *count)
         {
             .tv_sec = SERVER_BROADCAST_TIMEOUT,
         };
-        int nfds = broadcastSock + 1;
+        int nfds = answerSock + 1;
         fd_set readfds; 
         FD_ZERO(&readfds);
-        FD_SET(broadcastSock, &readfds);
+        FD_SET(answerSock, &readfds);
 
         retval = select(nfds, &readfds, NULL, NULL, &timeout);
         if (retval == -1)
             error(EXIT_FAILURE, errno, "select");
 
-        if (FD_ISSET(broadcastSock, &readfds))
+        if (FD_ISSET(answerSock, &readfds))
         {
-            socklen_t addrlen = sizeof(addr_arr[0]);
-            retval = recvfrom(broadcastSock, &broadcastMsg, sizeof(broadcastMsg), 0,
-                              (struct sockaddr *) (addr_arr + *count), &addrlen);
+            socklen_t addrlen = sizeof(addrArr[0]);
+            retval = recvfrom(answerSock, &broadcastMsg, sizeof(broadcastMsg), 0,
+                              (struct sockaddr *) (addrArr + nanswers), &addrlen);
             if (retval == -1)
-                error(EXIT_FAILURE, errno, "accept");
+                error(EXIT_FAILURE, errno, "recvfrom");
 
-            if (broadcastMsg == INTEGRAL_BROADCAST_MSG)
-                *count++;
+            if (broadcastMsg == INTEGRAL_BROADCAST_MSG &&
+                addrArr[nanswers].sin_port == answerAddr.sin_port)
+                nanswers++;
         } 
     }
     while(retval);
 
-    close(broadcastSock);
+    close(answerSock);
 
-    *result = addr_arr;    
+    if (result)
+        *result = addrArr;    
+    if (count)
+        *count = nanswers;
 
     return 0;
 }

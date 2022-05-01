@@ -25,7 +25,6 @@ int client_recvBroadcast(struct sockaddr_in *addr)
     if (retval == -1)
         error(EXIT_FAILURE, errno, "bind");
 
-    
     uint64_t msg = 0;
     socklen_t addrlen = sizeof(*addr);
     while (msg != INTEGRAL_BROADCAST_MSG)
@@ -34,10 +33,17 @@ int client_recvBroadcast(struct sockaddr_in *addr)
                               (struct sockaddr *) addr, &addrlen);
         if (retval == -1)
             error(EXIT_FAILURE, errno, "recvfrom");
-    }
+    } 
+
+    struct sockaddr_in answerAddr = 
+    {
+        .sin_family = AF_INET,
+        .sin_port = htons(INTEGRAL_BROADCAST_PORT),
+        .sin_addr.s_addr = addr->sin_addr.s_addr, 
+    };
 
     retval = sendto(sockfd, &msg, sizeof(msg), 0,
-                    (struct sockaddr *) addr, addrlen);
+                    (struct sockaddr *) &answerAddr, sizeof(answerAddr));
     if (retval == -1)
         error(EXIT_FAILURE, errno, "sendto");
 

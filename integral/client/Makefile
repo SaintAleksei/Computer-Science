@@ -1,6 +1,6 @@
-TARGET:=client
+TARGET:=test_client_broadcast
 INCDIRS:=..
-SOURCES:=client.c main.c
+SOURCES:=client.c test_client_broadcast.c
 OBJECTS:=$(patsubst %.c,%.o,$(SOURCES))
 CFLAGS:=-Wall -Wextra -MMD $(addprefix -I,$(INCDIRS))
 

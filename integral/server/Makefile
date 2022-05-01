@@ -1,8 +1,8 @@
-TARGET:=server
+TARGET:=test-server-broadcast
 INCDIRS:=..
-SOURCES:=server.c main.c
+SOURCES:=server.c test_server_broadcast.c
 OBJECTS:=$(patsubst %.c,%.o,$(SOURCES))
-CFLAGS:=-Wall -Wextra -I.. $(addprefix -I,$(INCDIRS))
+CFLAGS:=-g -Wall -Wextra -I.. $(addprefix -I,$(INCDIRS))
 
 $(TARGET): $(OBJECTS)
 	$(CC) -o $@ $^ -lm
