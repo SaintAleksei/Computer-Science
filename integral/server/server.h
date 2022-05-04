@@ -20,9 +20,8 @@ struct Server
 };
 
 int server_init(struct Server *sv, uint16_t port, double rangeStart, double rangeEnd);
+int server_sendBroadcast(uint16_t port, const char *msg, size_t msgSize);
 int server_startListening(struct Server *sv, uint16_t port);
 int server_processClients(struct Server *sv);
-
-int server_sendBroadcast(uint16_t port, uint64_t msg);
 
 #endif /* SERVER_SERVER_H_INCLUDED */

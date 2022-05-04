@@ -13,7 +13,8 @@ double task_rangeEnd(const struct Task *tsk);
 
 int task_split(struct Task *tsk, size_t ntasks);
 
-int task_link(struct Task *left, struct Task *right);
-int task_unlink(struct Task *tsk);
+void task_link_after(struct Task *tsk, struct Task *toLink);
+void task_link_before(struct Task *tsk, struct Task *toLink);
+void task_unlink(struct Task *tsk);
 
 #endif

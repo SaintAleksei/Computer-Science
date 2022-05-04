@@ -1,14 +1,13 @@
-PROJSRCDIR :=$(CURDIR)
-PROJBUILDDIR :=$(PROJSRCDIR)/build
-VPATH := $(PROJSRCDIR) $(PROJBUILDDIR)
+BUILDDIR :=$(CURDIR)/build
+INCDIRS := $(CURDIR)
+OBJS := $(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o,$(wildcard *.c)))
+CFLAGS := -Wall -Wextra -Werror -DINTEGRAL_LOG -g
+
+export EXTOBJS := $(OBJS)
+export EXTINCDIRS := $(INCDIRS)
+export EXTCFLAGS := $(CFLAGS)
 
 SUBDIRS := server client
-
-EXTOBJS := $(addprefix $(PROJBUILDDIR)/,$(patsubst %.c,%.o,$(wildcard *.c)))
-
-INCDIRS := $(PROJSRCDIR)
-
-CFLAGS := -Wall -Wextra -Werror
 
 .PHONY: all clean subdirs $(SUBDIRS)
 
@@ -16,22 +15,16 @@ all: subdirs
 
 subdirs: $(SUBDIRS)
 
-export VPATH
-export EXTOBJS
-export INCDIRS
-export CFLAGS
-$(SUBDIRS): $(EXTOBJS) | $(PROJBUILDDIR)
-	$(MAKE) --no-print-directory -C $@\
-    -f .makefile\
-    CURBUILDDIR=$(PROJBUILDDIR)/$@\
+$(SUBDIRS): $(OBJS) | $(BUILDDIR)
+	$(MAKE) -C $@ -f .makefile BUILDDIR=$(BUILDDIR)/$@
 
-$(EXTOBJS): $(PROJBUILDDIR)/%.o: %.c | $(PROJBUILDDIR)
+$(OBJS): $(BUILDDIR)/%.o: %.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
 
-$(PROJBUILDDIR): 
+$(BUILDDIR): 
 	mkdir $@
 
 clean:
-	rm -rf $(PROJBUILDDIR)
+	rm -rf $(BUILDDIR)
 
 -include $(patsubst %.o,%.d,$(EXTOBJS))

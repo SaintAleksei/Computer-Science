@@ -1,4 +1,5 @@
 #include "task.h"
+#include "log.h"
 #include <stdlib.h>
 #include <assert.h>
 
@@ -12,12 +13,21 @@ struct Task
 
 struct Task *task_create(double rangeStart, double rangeEnd)
 {
+    assert(rangeStart < rangeEnd);
+
     struct Task *tsk = calloc(1, sizeof(*tsk));
     if (!tsk)
+    {
+        LOG_ERROR("calloc(1, %lu)", sizeof(*tsk));
+
         return NULL;
+    }
 
     tsk->rangeStart = rangeStart;
     tsk->rangeEnd = rangeEnd;
+
+    LOG_WRITE("New task is created: [%lg, %lg]\n",
+              tsk->rangeStart, tsk->rangeEnd);
 
     return tsk;
 }
@@ -31,6 +41,9 @@ void task_delete(struct Task *tsk)
 
     if (tsk->prev)
         tsk->prev->next = tsk->next;
+
+    LOG_WRITE("Task [%lg, %lg] is deleted\n",
+              tsk->rangeStart, tsk->rangeEnd);
 
     free(tsk);
 }
@@ -63,7 +76,7 @@ double task_rangeEnd(const struct Task *tsk)
     return tsk->rangeEnd;
 }
 
-int task_unlink(struct Task *tsk)
+void task_unlink(struct Task *tsk)
 {
     assert(tsk);
 
@@ -74,33 +87,51 @@ int task_unlink(struct Task *tsk)
 
     tsk->next = NULL;
     tsk->prev = NULL;
-
-    return 0;
 }
 
-int task_link(struct Task *left, struct Task *right)
+void task_link_after(struct Task *tsk, struct Task *toLink)
 {
-    assert(left);
-    assert(right);
-    assert(left != right); 
+    assert(tsk);
+    assert(toLink);
+    assert(tsk != toLink); 
 
-    right->next = left->next;
-    if (right->next)
-        right->next->prev = right;
+    task_unlink(toLink);
 
-    left->next = right;
-    right->prev = left;
+    toLink->next = tsk->next;
+    if (toLink->next)
+        toLink->next->prev = toLink;
 
-    return 0;
+    tsk->next = toLink;
+    toLink->prev = tsk;
+}
+
+void task_link_before(struct Task *tsk, struct Task *toLink)
+{
+    assert(tsk);
+    assert(toLink);
+    assert(tsk != toLink); 
+
+    task_unlink(toLink);
+
+    toLink->prev = tsk->prev;
+    if (toLink->prev)
+        toLink->prev->next = toLink;
+
+    tsk->prev = toLink;
+    toLink->next = tsk;
 }
 
 int task_split(struct Task *tsk, size_t ntasks)
 {
     assert(tsk);
+    assert(ntasks);
+
+    LOG_WRITE("Spliting task [%lg, %lg] into %lu parts\n",
+              tsk->rangeStart, tsk->rangeEnd, ntasks);
 
     double start = tsk->rangeStart;
     double end = tsk->rangeEnd; 
-    double step = (start - end) / (double) ntasks;
+    double step = (end - start) / (double) ntasks;
 
     tsk->rangeEnd = tsk->rangeStart + step; 
 
@@ -115,9 +146,11 @@ int task_split(struct Task *tsk, size_t ntasks)
             return -1;
         } 
 
-        task_link(iterator, newTsk); 
+        task_link_after(iterator, newTsk); 
         iterator = newTsk;
     }
+
+    LOG_WRITE("Task is splited successfully\n");
 
     return 0;
 }

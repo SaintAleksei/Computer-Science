@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <sys/sysinfo.h>
+#include <log.h>
 #include <fcntl.h>
 #include <error.h>
 #include <unistd.h>
@@ -14,7 +15,7 @@
 
 #define MAX(A, B) (( (A) > (B) ) ? (A) : (B))
 
-struct threadCxt
+struct ThreadCxt
 {
     double start;
     double end;
@@ -31,6 +32,7 @@ int threads_integrate(size_t nthreads, double rangeStart, double rangeEnd,
     assert(rangeStart < rangeEnd);
     assert(func);
     assert(result);
+
 
     size_t nprocs = get_nprocs();
     size_t nworkers = MAX(nprocs, nthreads);
@@ -52,7 +54,7 @@ int threads_integrate(size_t nthreads, double rangeStart, double rangeEnd,
         error(EXIT_FAILURE, errno, "posix_memalign");
 
     double step = (rangeEnd - rangeStart) / (double) nthreads;
-    double start = 0.0;
+    double start = rangeStart;
     for (unsigned long i = 0; i < nworkers; i++, start += step)
     {
         cpu_set_t set;
@@ -67,7 +69,7 @@ int threads_integrate(size_t nthreads, double rangeStart, double rangeEnd,
         if (retval != 0)
             error(EXIT_FAILURE, errno, "pthread_attr_setaffinity_np");
 
-        struct threadCxt *tcxt = (struct threadCxt *)(buf + i * alignment);
+        struct ThreadCxt *tcxt = (struct ThreadCxt *)(buf + i * alignment);
         tcxt->start = start;
         tcxt->end = start + step;
         tcxt->dx = dx;
@@ -89,12 +91,21 @@ int threads_integrate(size_t nthreads, double rangeStart, double rangeEnd,
         if (retval != 0)
             error(EXIT_FAILURE, retval, "pthread_join");
 
+        struct ThreadCxt *cxt = (struct ThreadCxt *) (buf + i * alignment);
+
         if (i < nthreads)
-            *result += ((struct threadCxt *) (buf + i * alignment))->result;
+        {
+            LOG_WRITE("Thread[%lu] computed integral [%lg, %lg] with dx = %lg: %lg\n",
+                      i, cxt->start, cxt->end, cxt->dx, cxt->result); 
+            *result += cxt->result;
+        }
     }
 
     free(buf);
     free(thread);
+
+    LOG_WRITE("Integral [%lg, %lg] computed with %lu threads: %lg\n", 
+              rangeStart, rangeEnd, nthreads, *result);
 
     return 0;
 }
@@ -103,8 +114,9 @@ void *threadCb(void *cxt)
 {
     assert(cxt);
 
-    struct threadCxt *tcxt = cxt;
+    struct ThreadCxt *tcxt = cxt;
 
+    tcxt->result = 0;
     assert(tcxt->func); 
     for (double x = tcxt->start; x < tcxt->end; x += tcxt->dx)
         tcxt->result += tcxt->func(x) * tcxt->dx;
