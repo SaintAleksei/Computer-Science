@@ -52,8 +52,6 @@ int main(int argc, char **argv)
 
         if (retcode < 0)
             break;
-
-        while(1);
     }
 
     fprintf(stderr, "System error is occurred. See logs for details\n");

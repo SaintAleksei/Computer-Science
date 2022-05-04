@@ -324,6 +324,8 @@ int client_recvBroadcast(struct sockaddr_in *addr, uint16_t port, const char *ms
     socklen_t sockLen = sizeof(*addr);
     do
     {
+        LOG_WRITE("Waiting for broadcast...\n");
+
         int retval = recvfrom(sockfd, recvMsg, msgSize, 0,
                               (struct sockaddr *) addr, &sockLen);
         if (retval == -1)
