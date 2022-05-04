@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include "server.h"
 #include "config.h"
 #include "task.h"
@@ -5,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -14,6 +16,7 @@
 #include <error.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define SERVER_EPOLL_TIMEOUT 1000U
 #define SERVER_START_TSKTABLE_SZ 0x1000U

@@ -1,7 +1,7 @@
 BUILDDIR :=$(CURDIR)/build
 INCDIRS := $(CURDIR)
 OBJS := $(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o,$(wildcard *.c)))
-CFLAGS := -Wall -Wextra -Werror -DINTEGRAL_LOG -g
+CFLAGS := -Wall -Wextra -Werror -DINTEGRAL_LOG -std=c99
 
 export EXTOBJS := $(OBJS)
 export EXTINCDIRS := $(INCDIRS)
