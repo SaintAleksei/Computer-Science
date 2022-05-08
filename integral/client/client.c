@@ -248,6 +248,8 @@ void client_free(struct Client *cl)
 
     free(cl->alignedBuf);
 
+    task_deleteList(cl->tsk);
+
     close(cl->epollfd);
     close(cl->connectedSock);
     close(cl->responseSock);
