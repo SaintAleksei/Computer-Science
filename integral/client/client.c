@@ -707,7 +707,7 @@ static int client_recvBroadcast(struct Client *cl)
 
     char msg[INTEGRAL_BROADCAST_MAX_SIZE];
     struct sockaddr_in addr;
-    socklen_t socklen; 
+    socklen_t socklen = sizeof(addr);
 
     int retval = recvfrom(cl->responseSock, msg,
                           sizeof(INTEGRAL_BROADCAST_MSG), 0,

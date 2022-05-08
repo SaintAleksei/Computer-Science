@@ -358,7 +358,7 @@ static int server_acceptConnection(struct Server *sv)
     struct Client *newClient = NULL;
 
     struct sockaddr_in newClientAddr;
-    socklen_t socklen;
+    socklen_t socklen = sizeof(newClientAddr);
     errno = 0;
     newSock = accept4(sv->listeningSock,
                      (struct sockaddr *) &newClientAddr,
@@ -450,7 +450,7 @@ static int server_recvResponse(struct Server *sv)
 
     char ans[INTEGRAL_BROADCAST_MAX_SIZE];
     struct sockaddr_in addr;
-    socklen_t socklen;
+    socklen_t socklen = sizeof(addr);
 
     errno = 0;
     int retval = recvfrom(sv->broadcastSock, ans, 
