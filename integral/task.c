@@ -26,7 +26,7 @@ struct Task *task_create(double rangeStart, double rangeEnd)
     tsk->rangeStart = rangeStart;
     tsk->rangeEnd = rangeEnd;
 
-    LOG_WRITE("New task is created: [%lg, %lg]\n",
+    LOG_WRITE("Task [%lg,%lg] is created\n",
               tsk->rangeStart, tsk->rangeEnd);
 
     return tsk;
@@ -34,7 +34,8 @@ struct Task *task_create(double rangeStart, double rangeEnd)
 
 void task_delete(struct Task *tsk)
 {
-    assert(tsk);
+    if (!tsk)
+        return;
 
     if (tsk->next)
         tsk->next->prev = tsk->prev;
@@ -42,10 +43,20 @@ void task_delete(struct Task *tsk)
     if (tsk->prev)
         tsk->prev->next = tsk->next;
 
-    LOG_WRITE("Task [%lg, %lg] is deleted\n",
+    LOG_WRITE("Task [%lg,%lg] is deleted\n",
               tsk->rangeStart, tsk->rangeEnd);
 
     free(tsk);
+}
+
+void task_deleteList(struct Task *tsk)
+{
+    while (tsk)
+    {
+        struct Task *toDelete = tsk;
+        tsk = task_next(tsk);  
+        free(toDelete);
+    }
 }
 
 struct Task *task_next(const struct Task *tsk)
@@ -89,10 +100,11 @@ void task_unlink(struct Task *tsk)
     tsk->prev = NULL;
 }
 
-void task_link_after(struct Task *tsk, struct Task *toLink)
+void task_linkAfter(struct Task *tsk, struct Task *toLink)
 {
     assert(tsk);
-    assert(toLink);
+    if (!toLink)
+        return;
     assert(tsk != toLink); 
 
     task_unlink(toLink);
@@ -105,10 +117,11 @@ void task_link_after(struct Task *tsk, struct Task *toLink)
     toLink->prev = tsk;
 }
 
-void task_link_before(struct Task *tsk, struct Task *toLink)
+void task_linkBefore(struct Task *tsk, struct Task *toLink)
 {
     assert(tsk);
-    assert(toLink);
+    if (!toLink)
+        return; 
     assert(tsk != toLink); 
 
     task_unlink(toLink);
@@ -126,7 +139,7 @@ int task_split(struct Task *tsk, size_t ntasks)
     assert(tsk);
     assert(ntasks);
 
-    LOG_WRITE("Spliting task [%lg, %lg] into %lu parts\n",
+    LOG_WRITE("Spliting task [%lg,%lg] into %lu parts\n",
               tsk->rangeStart, tsk->rangeEnd, ntasks);
 
     double start = tsk->rangeStart;
@@ -146,11 +159,38 @@ int task_split(struct Task *tsk, size_t ntasks)
             return -1;
         } 
 
-        task_link_after(iterator, newTsk); 
+        task_linkAfter(iterator, newTsk); 
         iterator = newTsk;
     }
 
     LOG_WRITE("Task is splited successfully\n");
 
     return 0;
+}
+
+int task_writeStr(struct Task *tsk, char *str, size_t strsize)
+{
+    int ret = snprintf(str, strsize, "[%lg,%lg]",
+                       tsk->rangeStart, tsk->rangeEnd);
+
+    if (ret >= (int) strsize)
+        LOG_WRITE("Can't write task [%lg,%lg]\n",
+                  tsk->rangeStart, tsk->rangeEnd); 
+
+    return (int) strsize - ret;
+}
+
+struct Task *task_readStr(const char *str)
+{
+    double start;
+    double end;
+    int ret = sscanf(str, "[%lg,%lg]", &start, &end);
+    if (ret != 2)
+    {
+        LOG_WRITE("Can't write task from \"%s\"\n", str);
+
+        return NULL;
+    }
+
+    return task_create(start, end);
 }

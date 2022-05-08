@@ -1,11 +1,14 @@
 BUILDDIR :=$(CURDIR)/build
 INCDIRS := $(CURDIR)
+OPTIONS := -D INTEGRAL_LOG 
 OBJS := $(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o,$(wildcard *.c)))
-CFLAGS := -Wall -Wextra -Werror -DINTEGRAL_LOG -std=c99
+CFLAGS := -Wall -Wextra -Werror -Wno-cpp --std=c99
 
 export EXTOBJS := $(OBJS)
 export EXTINCDIRS := $(INCDIRS)
+export EXTOPTIONS := $(OPTIONS)
 export EXTCFLAGS := $(CFLAGS)
+export EXTCC := $(CC)
 
 SUBDIRS := server client
 
@@ -19,7 +22,7 @@ $(SUBDIRS): $(OBJS) | $(BUILDDIR)
 	$(MAKE) -C $@ -f .makefile BUILDDIR=$(BUILDDIR)/$@
 
 $(OBJS): $(BUILDDIR)/%.o: %.c | $(BUILDDIR)
-	$(CC) $(CFLAGS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
+	$(CC) $(CFLAGS) $(OPTIONS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
 
 $(BUILDDIR): 
 	mkdir $@

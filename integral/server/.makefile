@@ -1,7 +1,9 @@
 TARGET := $(BUILDDIR)/server
 INCDIRS := $(CURDIR) $(EXTINCDIRS)
 OBJS := $(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o,$(wildcard *.c)))
+OPTIONS := $(EXTOPTIONS)
 CFLAGS := $(EXTCFLAGS)
+CC := $(EXTCC)
 
 .PHONY: all 
 
@@ -11,7 +13,7 @@ $(TARGET): $(OBJS) $(EXTOBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 $(OBJS): $(BUILDDIR)/%.o: %.c | $(BUILDDIR)
-	$(CC) $(CFLAGS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
+	$(CC) $(CFLAGS) $(OPTIONS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
 
 $(BUILDDIR): 
 	mkdir $@

@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 extern FILE *__log_stream;
 
@@ -13,7 +14,6 @@ extern FILE *__log_stream;
     #define LOG_WRITE(...)\
         do\
         {\
-            fprintf(__log_stream, "%s:%d:%s: ", __FILE__, __LINE__, __PRETTY_FUNCTION__);\
             fprintf(__log_stream, __VA_ARGS__);\
         } while(0)
 
@@ -42,8 +42,16 @@ extern FILE *__log_stream;
 
 #else
 
-    #define LOG_WRITE
+    #define LOG_WRITE(...)
     #define LOG_INIT(name)
+
+    #define LOG_ERROR(...)\
+        do\
+        {\
+            fprintf(stderr, "%s:%d:%s: ERROR: ", __FILE__, __LINE__, __PRETTY_FUNCTION__);\
+            fprintf(stderr, __VA_ARGS__);\
+            fprintf(stderr, ": %s\n", strerror(errno));\
+        } while(0)
 
 #endif
 

@@ -2,26 +2,37 @@
 #define CLIENT_CLIENT_H_INCLUDED
 
 #include <netinet/ip.h>
+#include <pthread.h>
+#include "tcpmsg.h"
 #include "config.h"
 #include "log.h"
 
 struct Client
 {
-    double rangeStart;
-    double rangeEnd;
+    pthread_t *threads;
+    uint8_t *alignedBuf;
+    struct Task *tsk;
+    struct sockaddr_in listeningAddr;
+    struct sockaddr_in broadcastAddr;
+    struct TcpMsg msg;
+    time_t lastBroadcast;
     double result;
     size_t nthreads;
+    size_t alignment;
     int epollfd;
-    int connected;
+    int responseSock;
+    int connectedSock;
+    int threadRead;
+    int threadWrite;
+    int state;
+#define CLIENT_STATE_WAITING 1
+#define CLIENT_STATE_WORKING 2
 };
 
 int client_init(struct Client *cl, int argc, char **argv);
+void client_free(struct Client *cl);
 void client_usage();
-int client_recvBroadcast(struct sockaddr_in *servAddr, uint16_t port,
-                         const char *msg, size_t msgSize);
-int client_connectServer(struct Client *cl, struct sockaddr_in *servAddr, uint16_t port);
-int client_recvTask(struct Client *cl);
-int client_processTask(struct Client *cl);
-int client_sendResult(struct Client *cl);
+int client_connectServer(struct Client *cl);
+int client_processTasks(struct Client *cl);
 
 #endif /* CLIENT_CLIENT_H_INCLUDED */

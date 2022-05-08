@@ -1,6 +1,8 @@
 TARGET := $(BUILDDIR)/client
 INCDIRS := $(CURDIR) $(EXTINCDIRS)
+OPTIONS := $(EXTOPTIONS)
 CFLAGS := $(EXTCFLAGS)
+CC := $(EXTCC)
 OBJS := $(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o,$(wildcard *.c)))
 LIBS := -lpthread -lm
 
@@ -12,7 +14,7 @@ $(TARGET): $(OBJS) $(EXTOBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) 
 
 $(OBJS): $(BUILDDIR)/%.o: %.c | $(BUILDDIR)
-	$(CC) $(CFLAGS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
+	$(CC) $(CFLAGS) $(OPTIONS) -MMD $(addprefix -I,$(INCDIRS)) -c -o $@ $< 
 
 $(BUILDDIR): 
 	mkdir $@
