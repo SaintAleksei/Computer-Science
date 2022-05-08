@@ -357,7 +357,6 @@ static int server_acceptConnection(struct Server *sv)
     int newSock = -1;
     struct Client *newClient = NULL;
 
-    errno = 0;
     struct sockaddr_in newClientAddr;
     socklen_t socklen;
     errno = 0;
@@ -365,10 +364,10 @@ static int server_acceptConnection(struct Server *sv)
                      (struct sockaddr *) &newClientAddr,
                      &socklen, SOCK_NONBLOCK);
 
-    if (errno == ECONNABORTED)
+    if (newSock < 0 && errno == ECONNABORTED)
         return 0;
 
-    if (errno == EAGAIN || errno == EWOULDBLOCK)
+    if (newSock < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
         return 1;
 
     if (newSock < 0)
@@ -458,7 +457,7 @@ static int server_recvResponse(struct Server *sv)
                           sizeof(INTEGRAL_BROADCAST_MSG), MSG_NOSIGNAL,
                           (struct sockaddr *) &addr, &socklen);
     
-    if (errno == EAGAIN || errno == EWOULDBLOCK)
+    if (retval < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
         return 1;
 
     if (retval < 0)

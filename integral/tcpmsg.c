@@ -13,7 +13,8 @@ int tcpmsg_send(int sockfd, struct TcpMsg *msg)
     errno = 0;
     int retcode = send(sockfd, msg->buf + msg->offset, 
                        TCPMSG_SIZE - msg->offset, MSG_NOSIGNAL);
-    if (errno == ECONNREFUSED || errno == ECONNRESET || errno == EPIPE)
+    if (retcode < 0 && (errno == ECONNREFUSED || 
+        errno == ECONNRESET || errno == EPIPE))
     {
         LOG_ERROR("Can't send message\n");
 
@@ -42,7 +43,7 @@ int tcpmsg_recv(int sockfd, struct TcpMsg *msg)
     errno = 0;
     int retcode = recv(sockfd, msg->buf + msg->offset, 
                        TCPMSG_SIZE - msg->offset, 0);
-    if (errno == ECONNREFUSED || errno == ECONNRESET)
+    if (retcode < 0 && (errno == ECONNREFUSED || errno == ECONNRESET))
     {
         LOG_ERROR("Can't receive message\n");
 
