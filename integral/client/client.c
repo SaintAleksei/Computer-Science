@@ -146,12 +146,15 @@ int client_init(struct Client *cl, int argc, char **argv)
     for (i = 0; i < cl->nthreads; i++)
     {
         cpu_set_t set;
+        size_t cpu = 0;
 
         CPU_ZERO(&set); 
         if (((i * 2) / nprocs) % 2)
-            CPU_SET(((i * 2) + 1) % nprocs, &set);
+            cpu = ((i * 2) + 1) % nprocs;
         else
-            CPU_SET((i * 2) % nprocs, &set);
+            cpu = (i * 2) % nprocs;
+
+        CPU_SET(cpu, &set);
 
         if (pthread_attr_setaffinity_np(&attr, sizeof(set), &set) != 0)
         {
@@ -174,7 +177,7 @@ int client_init(struct Client *cl, int argc, char **argv)
             goto cleanup;
         }
 
-        LOG_WRITE("Thread [%lu] is created\n", i);
+        LOG_WRITE("Thread [%lu] is created on CPU [%lu]\n", i, cpu);
     }
 
     pthread_attr_destroy(&attr);

@@ -602,8 +602,8 @@ void server_clientFailure(struct Server *sv, struct Client *cl)
 
     if (sv->tskList)
         task_linkBefore(sv->tskList, cl->tsk);
-    else
-        sv->tskList = cl->tsk;
+        
+    sv->tskList = cl->tsk;
 
     sv->nClients--;
 
@@ -612,13 +612,13 @@ void server_clientFailure(struct Server *sv, struct Client *cl)
     assert(cl->fd < (int) sv->clTableSize);
     sv->clTable[cl->fd] = NULL;
 
-    free(cl);
-
     LOG_WRITE("Client connection %s:%hu is lost, task is canceled\n",
               inet_ntoa(cl->addr.sin_addr), ntohs(cl->addr.sin_port));
 
     printf("Client connection from %s:%hu is lost\n",
            inet_ntoa(cl->addr.sin_addr), ntohs(cl->addr.sin_port));
+
+    free(cl);
 }
 
 int server_sendBroadcast(struct Server *sv)
