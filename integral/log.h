@@ -42,7 +42,11 @@ extern FILE *__log_stream;
 
 #else
 
-    #define LOG_WRITE(...)
+    #define LOG_WRITE(...)\
+        do\
+        {\
+        } while (0)
+
     #define LOG_INIT(name)
 
     #define LOG_ERROR(...)\
