@@ -30,7 +30,7 @@ extern FILE *__log_stream;
         void __attribute__((constructor))__log_open()\
         {\
             char path[0x100];\
-            snprintf(path, 0x100, "/tmp/%s.log", #name);\
+            snprintf(path, 0x100, "%s.log", #name);\
             __log_stream = fopen(path, "w");\
             assert(__log_stream);\
             setvbuf(__log_stream, NULL, _IONBF, 0);\
