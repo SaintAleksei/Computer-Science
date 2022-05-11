@@ -48,11 +48,9 @@ static int server_distributeTasks(struct Server *sv);
 void server_clientFailure(struct Server *sv, struct Client *cl);
 void server_checkClients(struct Server *sv);
 
-int server_init(struct Server *sv, uint16_t listenPort, uint16_t broadPort,
-                double rangeStart, double rangeEnd)
+int server_init(struct Server *sv)
 {
     assert(sv);
-    assert(rangeStart < rangeEnd);
 
     sv->listeningSock = -1; 
     sv->broadcastSock = -1;
@@ -72,7 +70,8 @@ int server_init(struct Server *sv, uint16_t listenPort, uint16_t broadPort,
     
     sv->clTableSize = SERVER_START_CLTABLE_SZ;
 
-    sv->tskList = task_create(rangeStart, rangeEnd);
+    sv->tskList = task_create(INTEGRAL_RANGE_START, 
+                              INTEGRAL_RANGE_END);
     if (!sv->tskList)
         goto cleanup;
 
@@ -103,7 +102,7 @@ int server_init(struct Server *sv, uint16_t listenPort, uint16_t broadPort,
     struct sockaddr_in addr = 
     {
         .sin_family = AF_INET,
-        .sin_port = htons(listenPort),
+        .sin_port = htons(INTEGRAL_COMMUNICATION_PORT),
         .sin_addr.s_addr = INADDR_ANY,
     };
 
@@ -126,7 +125,6 @@ int server_init(struct Server *sv, uint16_t listenPort, uint16_t broadPort,
 
     LOG_WRITE("Listening socket is ready: %d\n", sv->listeningSock);
 
-    sv->broadcastPort = broadPort;
     sv->broadcastSock = socket(AF_INET, SOCK_DGRAM | O_NONBLOCK, 0);
     if (sv->broadcastSock == -1)
     {
@@ -145,7 +143,7 @@ int server_init(struct Server *sv, uint16_t listenPort, uint16_t broadPort,
         goto cleanup;
     }
 
-    addr.sin_port = htons(sv->broadcastPort);
+    addr.sin_port = htons(INTEGRAL_BROADCAST_SERVER_PORT);
 
     retval = bind(sv->broadcastSock, (struct sockaddr *) &addr, sizeof(addr));
     if (retval == -1)
@@ -480,7 +478,7 @@ static int server_recvResponse(struct Server *sv)
     struct Client *iter = sv->clList;
     for (; iter; iter = iter->next)
         if (iter->addr.sin_addr.s_addr == addr.sin_addr.s_addr &&
-            addr.sin_port == sv->broadcastPort)
+            addr.sin_port == htons(INTEGRAL_BROADCAST_CLIENT_PORT))
         {
             iter->lastResponse = time(NULL);
 
@@ -650,7 +648,7 @@ int server_sendBroadcast(struct Server *sv)
         {
             struct sockaddr_in 
             *broadcastAddr = (struct sockaddr_in *) iterator->ifa_broadaddr;
-            broadcastAddr->sin_port = htons(sv->broadcastPort);
+            broadcastAddr->sin_port = htons(INTEGRAL_BROADCAST_CLIENT_PORT);
             
             LOG_WRITE("Sending broadcat to %s:%hu: \"%s\"\n", 
                       inet_ntoa(broadcastAddr->sin_addr),

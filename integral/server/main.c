@@ -5,10 +5,7 @@ LOG_INIT(integral_server);
 int main()
 {
     struct Server sv;
-    int retcode = server_init(&sv, INTEGRAL_COMMUNICATION_PORT,
-                              INTEGRAL_BROADCAST_PORT,
-                              INTEGRAL_RANGE_START,
-                              INTEGRAL_RANGE_END);
+    int retcode = server_init(&sv);
     if (retcode)
         return retcode;
 

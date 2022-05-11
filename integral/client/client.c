@@ -282,7 +282,7 @@ int client_connectServer(struct Client *cl)
     struct sockaddr_in responseAddr =
     {
         .sin_family = AF_INET,
-        .sin_port = htons(INTEGRAL_BROADCAST_PORT),
+        .sin_port = htons(INTEGRAL_BROADCAST_CLIENT_PORT),
         .sin_addr.s_addr = INADDR_ANY,
     };
 

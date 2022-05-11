@@ -22,8 +22,7 @@ struct Server
     uint16_t broadcastPort;
 };
 
-int server_init(struct Server *sv, uint16_t listenPort, uint16_t broadPort,
-                double rangeStart, double rangeEnd);
+int server_init(struct Server *sv);
 void server_free(struct Server *sv);
 int server_sendBroadcast(struct Server *sv);
 int server_processClients(struct Server *sv);
