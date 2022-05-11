@@ -581,10 +581,14 @@ void server_checkClients(struct Server *sv)
     LOG_WRITE("Checking clients...\n");
 
     struct Client *iter = sv->clList;
-    for (; iter; iter = iter->next)
-        if ((curTime - iter->lastResponse) >
+    while (iter)
+    {
+        struct Client *toCheck = iter;
+        iter = iter->next;
+        if ((curTime - toCheck->lastResponse) >
             INTEGRAL_RESPONSE_TIMEOUT)
-            server_clientFailure(sv, iter);
+            server_clientFailure(sv, toCheck);
+    }
 }
 
 void server_clientFailure(struct Server *sv, struct Client *cl)
